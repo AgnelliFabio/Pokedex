@@ -21,4 +21,9 @@ class PokemonVarietySprite extends Model
         'back_shiny_url',
         'back_shiny_female_url'
     ];
+
+    public function pokemonVariety()
+    {
+        return $this->belongsTo(PokemonVariety::class);
+    }
 }
