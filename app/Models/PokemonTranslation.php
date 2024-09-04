@@ -7,5 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PokemonTranslation extends Model
 {
-    use HasFactory;
+  use HasFactory;
+
+  protected $fillable = ['name', 'category'];
 }
