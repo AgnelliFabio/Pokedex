@@ -48,4 +48,9 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+    public function pokemons()
+    {
+        return $this->belongsToMany(Pokemon::class)
+            ->withPivot('created_at');
+    }
 }

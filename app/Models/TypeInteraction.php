@@ -1,0 +1,13 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class TypeInteraction extends Model
+{
+    use HasFactory;
+
+    public $fillable= ['from_type_id','to_type_id','type_interaction_id'];
+}
