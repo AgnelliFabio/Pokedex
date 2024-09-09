@@ -12,4 +12,8 @@ class MoveLearnMethod extends Model implements TranslatableContract
     use HasFactory, Translatable;
 
     public $translatedAttributes = ['name','description'];
+
+    public function pokemonLearnMove(){
+        return $this->hasMany(PokemonLearnMove::class);
+    }
 }

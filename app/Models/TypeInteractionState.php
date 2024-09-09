@@ -10,4 +10,8 @@ class TypeInteractionState extends Model
     use HasFactory;
 
     protected $fillable=['name','multiplier'];
+
+    public function typeInteraction(){
+        return $this->hasMany(typeInteraction::class);
+    }
 }

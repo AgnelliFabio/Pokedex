@@ -12,4 +12,8 @@ class Ability extends Model implements TranslatableContract
     use HasFactory, Translatable;
 
     public $translatedAttributes = ['name','description', 'effect'];
+
+    public function abilityPokemonVariety(){
+        return $this->belongsToMany(PokemonVariety::class);
+    }
 }

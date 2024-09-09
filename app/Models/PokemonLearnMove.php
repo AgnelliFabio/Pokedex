@@ -11,4 +11,19 @@ class PokemonLearnMove extends Model
 
     protected $fillable = ['level'];
 
+    public function pokemonVariety(){
+        return $this->belongsTo(pokemonVariety::class);
+    }
+
+    public function move(){
+        return $this->belongsTo(Move::class);
+    }
+
+    public function moveLearnMethod(){
+        return $this->belongsTo(moveLearnMethod::class);
+    }
+
+    public function gameVersion(){
+        return $this->belongsTo(gameVersion::class);
+    }
 }

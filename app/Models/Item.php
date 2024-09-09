@@ -14,4 +14,12 @@ class Item extends Model implements TranslatableContract
     public $translatedAttributes = ['name','description'];
 
     protected $fillable=['sprite_url'];
+
+    public function heldItemId(){
+        return $this->hasMany(PokemonEvolution::class, 'held_item_id');
+    }
+
+    public function ItemId(){
+        return $this->hasMany(PokemonEvolution::class, 'item_id');
+    }
 }

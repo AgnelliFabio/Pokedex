@@ -13,4 +13,7 @@ class MoveDamageClass extends Model implements TranslatableContract
 
     public $translatedAttributes = ['name','description'];
 
+    public function moves(){
+        return $this->hasMany(Move::class);
+    }
 }

@@ -15,4 +15,7 @@ class EvolutionTrigger extends Model implements TranslatableContract
 
     protected $fillable=['slug'];
 
+    public function pokemonEvolution(){
+        return $this->hasMany(PokemonEvolution::class);
+    }
 }

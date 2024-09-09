@@ -15,4 +15,7 @@ class GameVersion extends Model implements TranslatableContract
 
     protected $fillable=['generic_name','generation'];
 
+    public function pokemonLearnMove(){
+        return $this->hasMany(PokemonLearnMove::class);
+    }
 }
