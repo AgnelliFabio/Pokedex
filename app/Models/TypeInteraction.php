@@ -11,7 +11,7 @@ class TypeInteraction extends Model
 
     public $fillable= ['from_type_id','to_type_id','type_interaction_id'];
 
-    public function typeInteractionState(){
+    public function states(){
         return $this->belongsTo(typeInteractionState::class);
     }
 }

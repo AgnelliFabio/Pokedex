@@ -11,7 +11,7 @@ class PokemonEvolution extends Model
 {
     use HasFactory;
 
-    public function pokemonVarietyId(){
+    public function varietyId(){
         return $this->belongsTo(pokemonVariety::class, 'pokemon_variety_id');
     }
 
@@ -27,7 +27,7 @@ class PokemonEvolution extends Model
         return $this->belongsTo(Item::class, 'item_id');
     }
 
-    public function move(){
+    public function moves(){
         return $this->belongsTo(Move::class);
     }
 

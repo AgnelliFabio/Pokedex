@@ -25,7 +25,7 @@ class Move extends Model implements TranslatableContract
         return $this->hasMany(PokemonLearnMove::class);
     }
 
-    public function moveDamageClass(){
+    public function damageClass(){
         return $this->belongsTo(MoveDamageClass::class);
     }
 

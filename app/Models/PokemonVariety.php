@@ -38,7 +38,7 @@ class PokemonVariety extends Model implements TranslatableContract
         return $this->belongsToMany(Ability::class);
     }
 
-    public function pokemonVarietyId(){
+    public function varietyId(){
         return $this->hasMany(pokemonEvolution::class, 'pokemon_variety_id');
     }
 
@@ -46,7 +46,7 @@ class PokemonVariety extends Model implements TranslatableContract
         return $this->hasMany(pokemonEvolution::class, 'evolves_to_id');
     }
 
-    public function pokemonLearnMove(){
+    public function learnMoves(){
         return $this->hasMany(pokemonLearnMove::class);
     }
 
