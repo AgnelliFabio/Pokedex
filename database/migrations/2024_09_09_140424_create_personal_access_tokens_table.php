@@ -11,14 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('type_translations', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->foreignIdFor(\App\Models\Type::class)->constrained()->onDelete('cascade');
-            $table->string('locale')->index();
+        Schema::create('personal_access_tokens', function (Blueprint $table) {
+            $table->id();
+            $table->morphs('tokenable');
             $table->string('name');
+            $table->string('token', 64)->unique();
+            $table->text('abilities')->nullable();
+            $table->timestamp('last_used_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
-
-            $table->unique(['type_id', 'locale']);
         });
     }
 
@@ -27,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('types_translations');
+        Schema::dropIfExists('personal_access_tokens');
     }
 };

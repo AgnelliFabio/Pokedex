@@ -34,7 +34,7 @@ class PokemonVariety extends Model implements TranslatableContract
     //     return $this->hasMany(pokemonVarietySprite::class);
     // }
 
-    public function abilityPokemonVariety(){
+    public function abilities(){
         return $this->belongsToMany(Ability::class);
     }
 
@@ -50,7 +50,7 @@ class PokemonVariety extends Model implements TranslatableContract
         return $this->hasMany(pokemonLearnMove::class);
     }
 
-    public function pokemonVarietyType(){
+    public function types(){
         return $this->belongsToMany(Type::class);
     }
 }

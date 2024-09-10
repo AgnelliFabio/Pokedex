@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('locale')->index();
             $table->string('name');
             $table->string('description')->nullable();
-            $table->string('effect')->nullable();
+            $table->text('effect')->nullable();
             $table->timestamps();
 
             $table->unique(['ability_id', 'locale']);
