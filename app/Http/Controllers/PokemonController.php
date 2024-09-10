@@ -17,4 +17,9 @@ class PokemonController extends Controller
     {
         return $pokemon->load(['defaultVariety', 'defaultVariety.sprites', 'defaultVariety.types']);
     }
+
+    public function showVarieties(Pokemon $pokemon)
+    {
+        return $pokemon->varieties()->with(['sprites', 'types'])->get();
+    }
 }
