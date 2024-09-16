@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Astrotomic\Translatable\Contracts\Translatable as TranslatableContract;
 use Astrotomic\Translatable\Translatable;
+use Laravel\Scout\Searchable;
 
 class Pokemon extends Model implements TranslatableContract
 {
-  use HasFactory, Translatable;
+  use HasFactory, Translatable, Searchable;
 
   // Liste des attributs traduits
   public $translatedAttributes = ['name', 'category'];
@@ -24,6 +25,17 @@ class Pokemon extends Model implements TranslatableContract
     'is_legendary' => 'boolean',
     'is_mythical' => 'boolean',
   ];
+
+  /**
+   * Get the indexable data array for the model.
+   *
+   * @return array<string, mixed>
+   */
+  public function toSearchableArray(): array
+  {
+    return $this->load(['varieties', 'varieties.types'])
+      ->toArray();
+  }
 
   public function varieties()
   {

@@ -17,4 +17,11 @@ class PokemonController extends Controller
     {
         return $pokemon->load(['defaultVariety', 'defaultVariety.sprites', 'defaultVariety.types']);
     }
+
+    public function search(Request $request)
+    {
+        return Pokemon::search($request->input('query'))
+            ->get()
+            ->load(['defaultVariety', 'defaultVariety.sprites', 'defaultVariety.types']);
+    }
 }
