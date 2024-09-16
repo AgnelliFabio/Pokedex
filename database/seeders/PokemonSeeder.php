@@ -50,7 +50,7 @@ class PokemonSeeder extends Seeder
         $this->seedEvolutionTrigger();
         $this->seedItems();
         $this->seedPokemon();
-        $this->seedEvolutions();
+        // $this->seedEvolutions();
     }
 
     // API Request
@@ -604,7 +604,7 @@ class PokemonSeeder extends Seeder
 
 
                         foreach ($pokemonVarietyForm->types as $type) {
-                            $localType = \App\Models\Type::whereTranslation('name', $type->type->name)->first();
+                            $localType = \App\Models\Type::whereTranslation('name', ucfirst($type->type->name))->first();
                             if ($localType) {
                                 $localPokemonVariety->types()->attach($localType->id, [
                                     'slot' => $type->slot,
@@ -614,7 +614,7 @@ class PokemonSeeder extends Seeder
 
 
                         foreach ($pokemonVariety->abilities as $ability) {
-                            $localAbility = \App\Models\Ability::whereTranslation('name', $ability->ability->name)->first();
+                            $localAbility = \App\Models\Ability::whereTranslation('name', ucfirst($ability->ability->name))->first();
                             if ($localAbility) {
                                 try {
                                     $localPokemonVariety->abilities()->attach($localAbility->id, [
@@ -628,10 +628,10 @@ class PokemonSeeder extends Seeder
                         }
 
                         foreach ($pokemonVariety->moves as $move){
-                            $localMove = \App\Models\Move::whereTranslation('name', $move->move->name)->first();
+                            $localMove = \App\Models\Move::whereTranslation('name', ucfirst($move->move->name))->first();
 
                             foreach ($move->version_group_details as $versionGroupDetail) {
-                                $learnMethod = \App\Models\MoveLearnMethod::whereTranslation('name', $versionGroupDetail->move_learn_method->name)->first();
+                                $learnMethod = \App\Models\MoveLearnMethod::whereTranslation('name', ucfirst($versionGroupDetail->move_learn_method->name))->first();
                                 $version = \App\Models\GameVersion::where('generic_name', $versionGroupDetail->version_group->name)->first();
 
                                 if ($localMove && $learnMethod && $version) {

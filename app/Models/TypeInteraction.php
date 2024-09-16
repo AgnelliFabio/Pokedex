@@ -9,9 +9,9 @@ class TypeInteraction extends Model
 {
     use HasFactory;
 
-    public $fillable= ['from_type_id','to_type_id','type_interaction_id'];
+    public $fillable = ['from_type_id', 'to_type_id', 'type_interaction_id'];
 
-    public function states(){
-        return $this->belongsTo(typeInteractionState::class);
+    public function typeInteractionState(){
+        return $this->belongsTo(TypeInteractionState::class, 'type_interaction_state_id');
     }
 }
