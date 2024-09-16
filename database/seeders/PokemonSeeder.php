@@ -281,7 +281,7 @@ class PokemonSeeder extends Seeder
                 foreach ($dammageRelations as $key => $value) {
                     if (property_exists($type->damage_relations, $key)) {
                         foreach ($type->damage_relations->$key as $relation) {
-                            $toType = \App\Models\Type::whereTranslation('name', $relation->name)->first();
+                            $toType = \App\Models\Type::whereTranslation('name', ucfirst($relation->name))->first();
 
                             if ($toType) {
                                 TypeInteraction::updateOrCreate([
@@ -326,7 +326,7 @@ class PokemonSeeder extends Seeder
         $this->getClass('move', function ($url) {
             $this->getObject($url, function ($move){
                 $damageClass = \App\Models\MoveDamageClass::whereTranslation('name', $move->damage_class->name)->first();
-                $type = \App\Models\Type::whereTranslation('name', $move->type->name)->first();
+                $type = \App\Models\Type::whereTranslation('name', ucfirst($move->type->name))->first();
 
                 if (!$damageClass || !$type) {
                     return;
