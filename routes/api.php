@@ -10,3 +10,5 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 Route::get('/pokemon', [PokemonController::class, 'index']);
 Route::get('/pokemon/{pokemon}', [PokemonController::class, 'show']);
+Route::get('/pokemon/{pokemon}/moves', [PokemonController::class, 'showmoves']);
+Route::get('/pokemon/{pokemon}/ability', [PokemonController::class, 'showability']);
