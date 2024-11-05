@@ -43,4 +43,10 @@ class PokemonController extends Controller
         $pokemon = Pokemon::with(['defaultVariety.abilities'])->find($pokemon->id);
         return response()->json($pokemon->defaultVariety->abilities);
     }
+
+    public function evolvesTree(Pokemon $pokemon)
+    {
+        $pokemon = Pokemon::with('defaultVariety.evolvesToId')->find($pokemon->id);
+        return response()->json($pokemon->defaultVariety->evolvesToId);
+    }
 }
