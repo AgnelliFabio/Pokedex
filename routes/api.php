@@ -15,6 +15,7 @@ Route::get('/pokemon/{pokemon}', [PokemonController::class, 'show']);
 Route::get('/pokemon/{pokemon}/moves', [PokemonController::class, 'showmoves']);
 Route::get('/pokemon/{pokemon}/ability', [PokemonController::class, 'showability']);
 Route::get('/pokemon/{pokemon}/evolution', [PokemonController::class, 'evolutions']);
+Route::get('/pokemon/{pokemon}/weaknesses', [PokemonController::class, 'weaknesses']);
  
 Route::get('/auth/redirect', function () {
     return Socialite::driver('github')->stateless()->redirect();
