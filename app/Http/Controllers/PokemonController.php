@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Pokemon;
 use App\Models\Move;
+use App\Models\PokemonVariety;
+use App\Models\PokemonEvolution;
 use App\Models\Ability;
 use Illuminate\Http\Request;
 
@@ -44,9 +46,78 @@ class PokemonController extends Controller
         return response()->json($pokemon->defaultVariety->abilities);
     }
 
-    public function evolvesTree(Pokemon $pokemon)
+    // RECUPERATION DES EVOLUTIONS FUTURES ET PASSÉS DU POKEMON
+
+    private function getEvolutionChainForward($varietyId, &$chain = [])
     {
-        $pokemon = Pokemon::with('defaultVariety.evolvesToId')->find($pokemon->id);
-        return response()->json($pokemon->defaultVariety->evolvesToId);
+        $evolutions = PokemonEvolution::where('pokemon_variety_id', $varietyId)->get();
+
+        foreach ($evolutions as $evolution) {
+            $chain[] = [
+                'from_id' => $evolution->pokemon_variety_id,
+                'to_id' => $evolution->evolves_to_id,
+                'min_level' => $evolution->min_level
+            ];
+
+            $this->getEvolutionChainForward($evolution->evolves_to_id, $chain);
+        }
+
+        return $chain;
+    }
+
+    private function getEvolutionChainBackward($varietyId, &$chain = [])
+    {
+        $evolutions = PokemonEvolution::where('evolves_to_id', $varietyId)->get();
+
+        foreach ($evolutions as $evolution) {
+            $chain[] = [
+                'from_id' => $evolution->pokemon_variety_id,
+                'to_id' => $evolution->evolves_to_id,
+                'min_level' => $evolution->min_level
+            ];
+
+            $this->getEvolutionChainBackward($evolution->pokemon_variety_id, $chain);
+        }
+
+        return $chain;
+    }
+
+    public function evolutions(Pokemon $pokemon)
+    {
+        $forwardChain = [];
+        $backwardChain = [];
+
+        $forward = $this->getEvolutionChainForward($pokemon->defaultVariety->id, $forwardChain);
+        $backward = $this->getEvolutionChainBackward($pokemon->defaultVariety->id, $backwardChain);
+
+        $enrichedForward = $this->enrichEvolutionChain($forward);
+        $enrichedBackward = $this->enrichEvolutionChain($backward);
+
+        return response()->json([
+            'evolves_to' => $enrichedForward,
+            'evolves_from' => $enrichedBackward
+        ]);
+    }
+
+    private function enrichEvolutionChain($chain)
+    {
+        return collect($chain)->map(function ($evolution) {
+            $fromVariety = PokemonVariety::with('pokemon')->find($evolution['from_id']);
+            $toVariety = PokemonVariety::with('pokemon')->find($evolution['to_id']);
+
+            return [
+                'from_pokemon' => [
+                    'id' => $fromVariety->pokemon->id,
+                    'name' => $fromVariety->pokemon->name,
+                    'sprite_url' => $fromVariety->sprites?->front_url
+                ],
+                'to_pokemon' => [
+                    'id' => $toVariety->pokemon->id,
+                    'name' => $toVariety->pokemon->name,
+                    'sprite_url' => $toVariety->sprites?->front_url
+                ],
+                'min_level' => $evolution['min_level']
+            ];
+        });
     }
 }

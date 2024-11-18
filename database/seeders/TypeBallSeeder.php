@@ -9,7 +9,6 @@ class TypeBallSeeder extends Seeder
 {
     public function run()
     {
-        // Liste des types avec accents et majuscules (comme dans la BDD) et correspondance avec les fichiers PNG (sans accent)
         $types = [
             'Acier' => 'type_acier.png',
             'Électrik' => 'type_electrik.png',
@@ -32,14 +31,12 @@ class TypeBallSeeder extends Seeder
         ];
 
         foreach ($types as $name => $fileName) {
-            // Trouver l'ID du type dans `types` en utilisant la traduction française
             $type = DB::table('type_translations')
                 ->where('name', $name)
                 ->where('locale', 'fr')
                 ->first();
 
             if ($type) {
-                // Mettre à jour la colonne `type_ball` dans la table `types`
                 DB::table('types')
                     ->where('id', $type->type_id)
                     ->update(['type_ball' => 'type-balls/' . $fileName]);
