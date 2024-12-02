@@ -129,27 +129,19 @@ class PokemonController extends Controller
 
     public function weaknesses(Pokemon $pokemon)
     {
-
         $variety = $pokemon->defaultVariety;
         if (!$variety) {
             return response()->json([]);
         }
 
-        // Récupérer les types du Pokémon
         $pokemonTypes = $variety->types;
-        if ($pokemonTypes->isEmpty()) {
-            return response()->json([]);
-        }
-
-        // Récupérer tous les types possibles
-        $allTypes = Type::all();
-        $typeMultipliers = [];
+        $allTypes = Type::orderBy('id')->get();
+        $typeInteractions = [];
 
         foreach ($allTypes as $attackingType) {
             $multiplier = 1.0;
 
             foreach ($pokemonTypes as $defendingType) {
-                // Utiliser la relation pour obtenir l'interaction
                 $interaction = $attackingType->interactTo()
                     ->where('type_interactions.to_type_id', $defendingType->id)
                     ->first();
@@ -162,46 +154,27 @@ class PokemonController extends Controller
                 }
             }
 
-            if ($multiplier != 1.0) {
-                $typeMultipliers[$attackingType->name] = [
-                    'multiplier' => $multiplier,
-                    'category' => $this->getCategoryFromMultiplier($multiplier),
-                    'sprite_url' => $attackingType->sprite_url
-                ];
-            }
+            $typeInteractions[] = [
+                'type' => $attackingType->name,
+                'multiplier' => $multiplier,
+                'type_ball' => $attackingType->type_ball,
+                'background_color' => $this->getBackgroundColor($multiplier)
+            ];
         }
 
-        // Organiser les résultats
-        $organizedWeaknesses = [
-            'immunities' => [],
-            'quarter_damage' => [],
-            'half_damage' => [],
-            'double_damage' => [],
-            'quadruple_damage' => []
-        ];
-
-        foreach ($typeMultipliers as $typeName => $data) {
-            if ($data['category']) {
-                $organizedWeaknesses[$data['category']][] = [
-                    'type' => $typeName,
-                    'multiplier' => $data['multiplier'],
-                    'sprite_url' => $data['sprite_url']
-                ];
-            }
-        }
-
-        return response()->json($organizedWeaknesses);
+        return response()->json($typeInteractions);
     }
 
-    private function getCategoryFromMultiplier($multiplier)
+    private function getBackgroundColor($multiplier)
     {
         return match ($multiplier) {
-            0.0 => 'immunities',
-            0.25 => 'quarter_damage',
-            0.5 => 'half_damage',
-            2.0 => 'double_damage',
-            4.0 => 'quadruple_damage',
-            default => null
+            0.0 => '#808080',  // Gris pour immunité
+            0.25 => '#93FF77', // Vert clair pour très résistant
+            0.5 => '#98FB98',  // Vert pâle pour résistant
+            1.0 => '#FFF8DC',  // Beige clair pour normal
+            2.0 => '#FFB6C1',  // Rose pour faible
+            4.0 => '#FF7553',  // Orange-rouge pour très faible
+            default => '#FFF8DC'
         };
     }
 }
