@@ -40,7 +40,32 @@ class PokemonController extends Controller
             $query->select('move_id')
                 ->from('pokemon_learn_moves')
                 ->where('pokemon_variety_id', $pokemonVarietyId);
-        })->get();
+        })
+            ->with([
+                'translations',
+                'type',
+                'moveDamageClass.translations'
+            ])
+            ->get()
+            ->map(function ($move) {
+                $currentLocale = app()->getLocale();
+                return [
+                    'id' => $move->id,
+                    'name' => $move->translate($currentLocale)?->name,
+                    'description' => $move->translate($currentLocale)?->description,
+                    'power' => $move->power,
+                    'accuracy' => $move->accuracy,
+                    'pp' => $move->pp,
+                    'type' => [
+                        'name' => $move->type?->name,
+                        'type_ball' => $move->type?->type_ball
+                    ],
+                    'class' => [
+                        'id' => $move->moveDamageClass?->id,
+                        'name' => $move->moveDamageClass?->translate($currentLocale)?->name
+                    ]
+                ];
+            });
     }
 
     public function showability(Pokemon $pokemon)
@@ -49,39 +74,93 @@ class PokemonController extends Controller
         return response()->json($pokemon->defaultVariety->abilities);
     }
 
-    // RECUPERATION DES FAIBLESSES D'UN POKEMON
-
-
-    // RECUPERATION DES EVOLUTIONS FUTURES ET PASSÉS DU POKEMON
+    private function getEvolutionMessage($evolution)
+    {
+        return match ($evolution->evolution_trigger_id) {
+            1 => $evolution->min_level ? "Niveau {$evolution->min_level}" : "Par niveau",
+            2 => "Par échange",
+            3 => $evolution->item_id ? "Utiliser {$evolution->item_id}" : "Utiliser un objet",
+            4 => "Par mue",
+            5 => "En tournant",
+            6 => "Tour des Ténèbres",
+            7 => "Tour des Eaux",
+            8 => "Trois coups critiques",
+            9 => "Recevoir des dégâts",
+            10 => "Autre méthode",
+            11 => "Style Agile",
+            12 => "Style Puissant",
+            13 => "Dégâts de recul",
+            default => "Méthode inconnue"
+        };
+    }
 
     private function getEvolutionChainForward($varietyId, &$chain = [])
     {
-        $evolutions = PokemonEvolution::where('pokemon_variety_id', $varietyId)->get();
+        $evolutions = PokemonEvolution::where('pokemon_variety_id', $varietyId)
+            ->with([
+                'pokemonVarietyId.pokemon',
+                'pokemonVarietyId.sprites',
+                'evolvesToPokemonId.pokemon',
+                'evolvesToPokemonId.sprites',
+                'evolutionTrigger.translations',
+                'itemId',
+                'heldItemId'
+            ])
+            ->get();
 
         foreach ($evolutions as $evolution) {
             $chain[] = [
-                'from_id' => $evolution->pokemon_variety_id,
-                'to_id' => $evolution->evolves_to_id,
-                'min_level' => $evolution->min_level
+                'from_pokemon' => [
+                    'id' => $evolution->pokemonVarietyId?->pokemon?->id,
+                    'name' => $evolution->pokemonVarietyId?->pokemon?->name,
+                    'sprite_url' => $evolution->pokemonVarietyId?->sprites?->front_url
+                ],
+                'to_pokemon' => [
+                    'id' => $evolution->evolvesToPokemonId?->pokemon?->id,
+                    'name' => $evolution->evolvesToPokemonId?->pokemon?->name,
+                    'sprite_url' => $evolution->evolvesToPokemonId?->sprites?->front_url
+                ],
+                'evolution_method' => $this->getDetailedEvolutionMessage($evolution)
             ];
 
+            // Appel récursif pour trouver les évolutions suivantes
             $this->getEvolutionChainForward($evolution->evolves_to_id, $chain);
         }
 
         return $chain;
     }
 
+
     private function getEvolutionChainBackward($varietyId, &$chain = [])
     {
-        $evolutions = PokemonEvolution::where('evolves_to_id', $varietyId)->get();
+        $evolutions = PokemonEvolution::where('evolves_to_id', $varietyId)
+            ->with([
+                'pokemonVarietyId.pokemon',
+                'pokemonVarietyId.sprites',
+                'evolvesToPokemonId.pokemon',
+                'evolvesToPokemonId.sprites',
+                'evolutionTrigger.translations',
+                'itemId',
+                'heldItemId'
+            ])
+            ->get();
 
         foreach ($evolutions as $evolution) {
             $chain[] = [
-                'from_id' => $evolution->pokemon_variety_id,
-                'to_id' => $evolution->evolves_to_id,
-                'min_level' => $evolution->min_level
+                'from_pokemon' => [
+                    'id' => $evolution->pokemonVarietyId?->pokemon?->id,
+                    'name' => $evolution->pokemonVarietyId?->pokemon?->name,
+                    'sprite_url' => $evolution->pokemonVarietyId?->sprites?->front_url
+                ],
+                'to_pokemon' => [
+                    'id' => $evolution->evolvesToPokemonId?->pokemon?->id,
+                    'name' => $evolution->evolvesToPokemonId?->pokemon?->name,
+                    'sprite_url' => $evolution->evolvesToPokemonId?->sprites?->front_url
+                ],
+                'evolution_method' => $this->getDetailedEvolutionMessage($evolution)
             ];
 
+            // Appel récursif pour trouver les évolutions précédentes
             $this->getEvolutionChainBackward($evolution->pokemon_variety_id, $chain);
         }
 
@@ -90,19 +169,84 @@ class PokemonController extends Controller
 
     public function evolutions(Pokemon $pokemon)
     {
-        $forwardChain = [];
-        $backwardChain = [];
+        try {
+            $variety = $pokemon->defaultVariety;
+            if (!$variety) {
+                return response()->json([]);
+            }
 
-        $forward = $this->getEvolutionChainForward($pokemon->defaultVariety->id, $forwardChain);
-        $backward = $this->getEvolutionChainBackward($pokemon->defaultVariety->id, $backwardChain);
+            // Initialiser les tableaux pour les chaînes d'évolution
+            $forwardChain = [];
+            $backwardChain = [];
 
-        $enrichedForward = $this->enrichEvolutionChain($forward);
-        $enrichedBackward = $this->enrichEvolutionChain($backward);
+            // Récupérer toute la chaîne d'évolution vers l'avant et l'arrière
+            $evolutionsTo = $this->getEvolutionChainForward($variety->id, $forwardChain);
+            $evolutionsFrom = $this->getEvolutionChainBackward($variety->id, $backwardChain);
 
-        return response()->json([
-            'evolves_to' => $enrichedForward,
-            'evolves_from' => $enrichedBackward
-        ]);
+            return response()->json([
+                'evolves_to' => collect($evolutionsTo)->filter()->values(),
+                'evolves_from' => collect($evolutionsFrom)->filter()->values()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    private function getDetailedEvolutionMessage($evolution)
+    {
+        $method = $evolution->evolutionTrigger?->translate(app()->getLocale())?->name ?? 'Méthode inconnue';
+        $details = [];
+
+        switch ($evolution->evolution_trigger_id) {
+            case 1: // level-up
+                if ($evolution->min_level) {
+                    $details[] = "Niveau {$evolution->min_level}";
+                }
+                if ($evolution->min_happiness) {
+                    $details[] = "Bonheur ≥ {$evolution->min_happiness}";
+                }
+                if ($evolution->min_affection) {
+                    $details[] = "Affection ≥ {$evolution->min_affection}";
+                }
+                break;
+
+            case 2: // trade
+                if ($evolution->tradeSpeciesId) {
+                    $details[] = "Échange contre {$evolution->tradeSpeciesId->name}";
+                }
+                if ($evolution->heldItemId) {
+                    $details[] = "Tenir {$evolution->heldItemId->translate(app()->getLocale())?->name}";
+                }
+                break;
+
+            case 3: // use-item
+                if ($evolution->itemId) {
+                    $details[] = "Utiliser {$evolution->itemId->translate(app()->getLocale())?->name}";
+                }
+                break;
+        }
+
+        if ($evolution->time_of_day) {
+            $details[] = match ($evolution->time_of_day) {
+                'day' => 'Jour',
+                'night' => 'Nuit',
+                default => ucfirst($evolution->time_of_day)
+            };
+        }
+
+        if ($evolution->needs_overworld_rain) {
+            $details[] = "Sous la pluie";
+        }
+
+        if ($evolution->turn_upside_down) {
+            $details[] = "Console à l'envers";
+        }
+
+        if ($details) {
+            return implode(' + ', $details);
+        }
+
+        return $method;
     }
 
     private function enrichEvolutionChain($chain)
@@ -139,6 +283,10 @@ class PokemonController extends Controller
         $typeInteractions = [];
 
         foreach ($allTypes as $attackingType) {
+            // Ignorer le type Stellaire
+            if ($attackingType->id === 19) {
+                continue;
+            }
             $multiplier = 1.0;
 
             foreach ($pokemonTypes as $defendingType) {
