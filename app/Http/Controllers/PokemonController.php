@@ -8,6 +8,8 @@ use App\Models\PokemonVariety;
 use App\Models\PokemonEvolution;
 use App\Models\Type;
 use App\Models\TypeInteractionState;
+use App\Models\GameVersion;
+use App\Models\PokemonLearnMove;
 use App\Models\Ability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +38,25 @@ class PokemonController extends Controller
     {
         $pokemonVarietyId = $pokemon->defaultVariety->id;
 
-        return Move::whereIn('id', function ($query) use ($pokemonVarietyId) {
+        // Modifions la requête des versions pour ne prendre que celles où le Pokémon a des capacités
+        $versions = GameVersion::whereExists(function ($query) use ($pokemonVarietyId) {
+            $query->select('game_version_id')
+                ->from('pokemon_learn_moves')
+                ->whereColumn('game_versions.id', 'pokemon_learn_moves.game_version_id')
+                ->where('pokemon_variety_id', $pokemonVarietyId);
+        })
+            ->with('translations')
+            ->get()
+            ->map(function ($version) {
+                return [
+                    'id' => $version->id,
+                    'name' => $version->translate(app()->getLocale())?->name,
+                    'generic_name' => $version->generic_name
+                ];
+            });
+
+        // Le reste du code reste identique...
+        $moves = Move::whereIn('id', function ($query) use ($pokemonVarietyId) {
             $query->select('move_id')
                 ->from('pokemon_learn_moves')
                 ->where('pokemon_variety_id', $pokemonVarietyId);
@@ -47,12 +67,16 @@ class PokemonController extends Controller
                 'moveDamageClass.translations'
             ])
             ->get()
-            ->map(function ($move) {
-                $currentLocale = app()->getLocale();
+            ->map(function ($move) use ($pokemonVarietyId) {
+                $moveVersions = PokemonLearnMove::where('pokemon_variety_id', $pokemonVarietyId)
+                    ->where('move_id', $move->id)
+                    ->pluck('game_version_id')
+                    ->toArray();
+
                 return [
                     'id' => $move->id,
-                    'name' => $move->translate($currentLocale)?->name,
-                    'description' => $move->translate($currentLocale)?->description,
+                    'name' => $move->translate(app()->getLocale())?->name,
+                    'description' => $move->translate(app()->getLocale())?->description,
                     'power' => $move->power,
                     'accuracy' => $move->accuracy,
                     'pp' => $move->pp,
@@ -62,10 +86,16 @@ class PokemonController extends Controller
                     ],
                     'class' => [
                         'id' => $move->moveDamageClass?->id,
-                        'name' => $move->moveDamageClass?->translate($currentLocale)?->name
-                    ]
+                        'name' => $move->moveDamageClass?->translate(app()->getLocale())?->name
+                    ],
+                    'versions' => $moveVersions
                 ];
             });
+
+        return response()->json([
+            'versions' => $versions,
+            'moves' => $moves
+        ]);
     }
 
     public function showability(Pokemon $pokemon)
