@@ -100,8 +100,20 @@ class PokemonController extends Controller
 
     public function showability(Pokemon $pokemon)
     {
-        $pokemon = Pokemon::with(['defaultVariety.abilities'])->find($pokemon->id);
-        return response()->json($pokemon->defaultVariety->abilities);
+        $pokemon = Pokemon::with(['defaultVariety.abilities' => function ($query) {
+            $query->with('translations');
+        }])->find($pokemon->id);
+
+        return $pokemon->defaultVariety->abilities->map(function ($ability) {
+            $currentLocale = app()->getLocale();
+            return [
+                'id' => $ability->id,
+                'name' => $ability->translate($currentLocale)?->name,
+                'description' => $ability->translate($currentLocale)?->description,
+                'effect' => $ability->translate($currentLocale)?->effect,
+                'is_hidden' => $ability->pivot->is_hidden ?? false
+            ];
+        });
     }
 
     private function getEvolutionMessage($evolution)
