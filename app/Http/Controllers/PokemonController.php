@@ -116,26 +116,6 @@ class PokemonController extends Controller
         });
     }
 
-    private function getEvolutionMessage($evolution)
-    {
-        return match ($evolution->evolution_trigger_id) {
-            1 => $evolution->min_level ? "Niveau {$evolution->min_level}" : "Par niveau",
-            2 => "Par échange",
-            3 => $evolution->item_id ? "Utiliser {$evolution->item_id}" : "Utiliser un objet",
-            4 => "Par mue",
-            5 => "En tournant",
-            6 => "Tour des Ténèbres",
-            7 => "Tour des Eaux",
-            8 => "Trois coups critiques",
-            9 => "Recevoir des dégâts",
-            10 => "Autre méthode",
-            11 => "Style Agile",
-            12 => "Style Puissant",
-            13 => "Dégâts de recul",
-            default => "Méthode inconnue"
-        };
-    }
-
     private function getEvolutionChainForward($varietyId, &$chain = [])
     {
         $evolutions = PokemonEvolution::where('pokemon_variety_id', $varietyId)
@@ -210,27 +190,148 @@ class PokemonController extends Controller
     }
 
     public function evolutions(Pokemon $pokemon)
-    {
-        try {
-            $variety = $pokemon->defaultVariety;
-            if (!$variety) {
-                return response()->json([]);
+{
+    try {
+        $variety = $pokemon->defaultVariety;
+        if (!$variety) {
+            return response()->json([]);
+        }
+
+        // Récupérer toutes les évolutions liées à cette espèce
+        $allEvolutions = PokemonEvolution::whereIn('pokemon_variety_id', function($query) use ($variety) {
+            // Trouver toutes les variétés qui font partie de la même chaîne d'évolution
+            $query->select('id')
+                ->from('pokemon_varieties')
+                ->where('pokemon_id', function($subquery) use ($variety) {
+                    $subquery->select('pokemon_id')
+                        ->from('pokemon_varieties')
+                        ->where('id', $variety->id);
+                });
+        })
+        ->orWhereIn('evolves_to_id', function($query) use ($variety) {
+            // Même chose pour les évolutions vers ces variétés
+            $query->select('id')
+                ->from('pokemon_varieties')
+                ->where('pokemon_id', function($subquery) use ($variety) {
+                    $subquery->select('pokemon_id')
+                        ->from('pokemon_varieties')
+                        ->where('id', $variety->id);
+                });
+        })
+        ->with([
+            'pokemonVarietyId.pokemon',
+            'pokemonVarietyId.sprites',
+            'evolvesToPokemonId.pokemon',
+            'evolvesToPokemonId.sprites',
+            'evolutionTrigger.translations',
+            'itemId',
+            'heldItemId'
+        ])
+        ->get();
+
+        // Construire la chaîne d'évolution
+        $chain = $allEvolutions->map(function($evolution) {
+            return [
+                'from_pokemon' => [
+                    'id' => $evolution->pokemonVarietyId?->pokemon?->id,
+                    'name' => $evolution->pokemonVarietyId?->pokemon?->name,
+                    'sprite_url' => $evolution->pokemonVarietyId?->sprites?->front_url
+                ],
+                'to_pokemon' => [
+                    'id' => $evolution->evolvesToPokemonId?->pokemon?->id,
+                    'name' => $evolution->evolvesToPokemonId?->pokemon?->name,
+                    'sprite_url' => $evolution->evolvesToPokemonId?->sprites?->front_url
+                ],
+                'evolution_method' => $this->getDetailedEvolutionMessage($evolution)
+            ];
+        });
+
+        // Trier la chaîne pour avoir le bon ordre
+        $sortedChain = $this->sortEvolutionChain($chain);
+
+        return response()->json([
+            'evolution_chain' => $sortedChain
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
+private function sortEvolutionChain($chain)
+{
+    // Créer un graphe des évolutions
+    $graph = [];
+    $allPokemon = [];
+    foreach ($chain as $evolution) {
+        $fromId = $evolution['from_pokemon']['id'];
+        $toId = $evolution['to_pokemon']['id'];
+        $graph[$fromId][] = ['id' => $toId, 'evolution' => $evolution];
+        $allPokemon[$fromId] = $evolution['from_pokemon'];
+        $allPokemon[$toId] = $evolution['to_pokemon'];
+    }
+
+    // Trouver la forme de base (celle qui n'est destination d'aucune évolution)
+    $baseForm = null;
+    foreach ($allPokemon as $id => $pokemon) {
+        $isDestination = false;
+        foreach ($graph as $evolutions) {
+            foreach ($evolutions as $evolution) {
+                if ($evolution['id'] === $id) {
+                    $isDestination = true;
+                    break 2;
+                }
             }
+        }
+        if (!$isDestination) {
+            $baseForm = $id;
+            break;
+        }
+    }
 
-            // Initialiser les tableaux pour les chaînes d'évolution
-            $forwardChain = [];
-            $backwardChain = [];
+    // Construire la chaîne ordonnée
+    $orderedChain = [];
+    $currentId = $baseForm;
+    while (isset($graph[$currentId])) {
+        foreach ($graph[$currentId] as $evolution) {
+            $orderedChain[] = $evolution['evolution'];
+            $currentId = $evolution['id'];
+            break;
+        }
+    }
 
-            // Récupérer toute la chaîne d'évolution vers l'avant et l'arrière
-            $evolutionsTo = $this->getEvolutionChainForward($variety->id, $forwardChain);
-            $evolutionsFrom = $this->getEvolutionChainBackward($variety->id, $backwardChain);
+    return $orderedChain;
+}
 
-            return response()->json([
-                'evolves_to' => collect($evolutionsTo)->filter()->values(),
-                'evolves_from' => collect($evolutionsFrom)->filter()->values()
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+    private function buildFullEvolutionChain($varietyId, &$chain)
+    {
+        // Trouver toutes les connexions d'évolution pour cette variété
+        $evolutions = PokemonEvolution::where('pokemon_variety_id', $varietyId)
+            ->orWhere('evolves_to_id', $varietyId)
+            ->with([
+                'pokemonVarietyId.pokemon',
+                'pokemonVarietyId.sprites',
+                'evolvesToPokemonId.pokemon',
+                'evolvesToPokemonId.sprites',
+                'evolutionTrigger.translations',
+                'itemId',
+                'heldItemId'
+            ])
+            ->get();
+
+        foreach ($evolutions as $evolution) {
+            $chain[] = [
+                'from_pokemon' => [
+                    'id' => $evolution->pokemonVarietyId?->pokemon?->id,
+                    'name' => $evolution->pokemonVarietyId?->pokemon?->name,
+                    'sprite_url' => $evolution->pokemonVarietyId?->sprites?->front_url
+                ],
+                'to_pokemon' => [
+                    'id' => $evolution->evolvesToPokemonId?->pokemon?->id,
+                    'name' => $evolution->evolvesToPokemonId?->pokemon?->name,
+                    'sprite_url' => $evolution->evolvesToPokemonId?->sprites?->front_url
+                ],
+                'evolution_method' => $this->getDetailedEvolutionMessage($evolution)
+            ];
         }
     }
 
@@ -291,27 +392,7 @@ class PokemonController extends Controller
         return $method;
     }
 
-    private function enrichEvolutionChain($chain)
-    {
-        return collect($chain)->map(function ($evolution) {
-            $fromVariety = PokemonVariety::with('pokemon')->find($evolution['from_id']);
-            $toVariety = PokemonVariety::with('pokemon')->find($evolution['to_id']);
 
-            return [
-                'from_pokemon' => [
-                    'id' => $fromVariety->pokemon->id,
-                    'name' => $fromVariety->pokemon->name,
-                    'sprite_url' => $fromVariety->sprites?->front_url
-                ],
-                'to_pokemon' => [
-                    'id' => $toVariety->pokemon->id,
-                    'name' => $toVariety->pokemon->name,
-                    'sprite_url' => $toVariety->sprites?->front_url
-                ],
-                'min_level' => $evolution['min_level']
-            ];
-        });
-    }
 
     public function weaknesses(Pokemon $pokemon)
     {
